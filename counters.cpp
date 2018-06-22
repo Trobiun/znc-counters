@@ -52,7 +52,7 @@ public:
     //GETTERS
     CString prettyPrint() {
         return CString("Nom : " + m_sName + "\nInitial : " + CString(m_initial) + "\nStep : " + CString(m_step)
-                + "\nCooldown : " + CString(m_cooldown) + "\nDelay : " + CString(m_delay) + "\n" + m_sMessage);
+                + "\nCooldown : " + CString(m_cooldown) + "\nDelay : " + CString(m_delay) + "\nMessage : " + m_sMessage);
     }
     
     CString getCounterName() {

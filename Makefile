@@ -1,13 +1,15 @@
 MODULES_DIR = /var/lib/znc/modules
+export INCLUDES=-Ilib
 
 all: counters.so
 	
-	
+
 counters.so: counters.cpp
-	znc-buildmod $<
+	znc-buildmod $?
 
 copy: counters.so
-	cp counters.so $(MODULES_DIR)
+	cp $< $(MODULES_DIR)
 
+.PHONY: clean
 clean:
 	rm -f counters.so
