@@ -1,4 +1,4 @@
 # znc-counters
-A ZNC module to count things using commands
+A ZNC (1.6.x version) module to count things using commands.
 
 This module uses argparse : https://github.com/hbristow/argparse
