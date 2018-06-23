@@ -7,26 +7,46 @@
 #include <znc/Chan.h>
 #include "argparse.hpp"
 
+//class Property {
+//protected:
+//    enum class EnumProperty {
+//        NAME,
+//        INITIAL,
+//        STEP,
+//        COOLDOWN,
+//        DELAY,
+//        MESSAGE
+//    } lol;
+//    
+//    
+//public:
+//    
+//    Property(EnumProperty ep) {
+//        
+//    }
+//
+//};
+
+const int DEFAULT_INITIAL = 0;
+const int DEFAULT_STEP = 1;
+const int DEFAULT_COOLDOWN = 0;
+const int DEFAULT_DELAY = 0;
+const std::string DEFAULT_MESSAGE = "{NAME} has value : {CURRENT_VALUE}";
 
 class CCounter {
 protected:
+    //STATIC VARIABLES OR TESTS
+    MCString m_formatMap;
+    
+    
     //DATA MEMBERS
-    //constants defined by constructor
+    //"constants" defined by constructor
     CString m_sName;
     int m_initial;
     int m_step;
-    /**
-     * Cooldown between 2 messages when value change.
-     */
-    int m_cooldown;
-    /**
-     * Delay to send message when value change.
-     */
-    int m_delay;
-    /**
-     * The message to send when value change.
-     */
-    CString m_sMessage;
+    int m_cooldown; /**< Cooldown between 2 messages when value change. */
+    int m_delay; /**< Delay to send message when value change. */
+    CString m_sMessage; /**< The message to send when value change. */
     
     //values that can change
     int m_current_value;
@@ -70,9 +90,15 @@ protected:
     }
     
 public:
+    //STATIC FUNCTION TO CREATE MAP OF FORMAT
+    static void initializeFormatMap(CCounter& counter) {
+//        formatMap.insert(std::pair<CString,CString>("NAME"),counter.);
+    }
+    
     //CONSTRUCTOR & DESTRUCTOR
-    CCounter(const CString& sName, const int initial = 0, const int step = 1,
-            const int cooldown = 0, const int delay = 0, const CString& sMessage = "[NAME] has value : [CURRENT_VALUE]") {
+    CCounter(const CString& sName, const int initial = DEFAULT_INITIAL, const int step = DEFAULT_STEP,
+            const int cooldown = DEFAULT_COOLDOWN, const int delay = DEFAULT_DELAY,
+            const CString& sMessage = DEFAULT_MESSAGE) {
         this->m_sName = sName;
         this->m_initial = initial;
         this->m_step = step;
@@ -82,7 +108,19 @@ public:
         
         this->m_previous_value = this->m_current_value = initial;
         this->m_maximum_value = this->m_minimum_value = this->m_current_value;
-        this->m_creation_datetime = time(nullptr);
+        this->m_last_change = this->m_creation_datetime = time(nullptr);
+        
+//        this->m_formatMap = MCString();
+//        this->m_formatMap.insert(std::pair<CString,CString>("NAME",this->m_sName));
+//        this->m_formatMap.insert(std::pair<CString,CString>("INITIAL",this->m_initial));
+//        this->m_formatMap.insert(std::pair<CString,CString>("STEP",this->m_step));
+//        this->m_formatMap.insert(std::pair<CString,CString>("COOLDOWN",this->m_cooldown));
+//        this->m_formatMap.insert(std::pair<CString,CString>("DELAY",this->m_delay));
+//        this->m_formatMap.insert(std::pair<CString,CString>("PREVIOUS_VALUE",this->m_previous_value));
+//        this->m_formatMap.insert(std::pair<CString,CString>("CURRENT_VALUE",this->m_current_value));
+//        this->m_formatMap.insert(std::pair<CString,CString>("MINIMUM_VALUE",this->m_minimum_value));
+//        this->m_formatMap.insert(std::pair<CString,CString>("MAXIMUM_VALUE",this->m_maximum_value));
+        
     }
     
     ~CCounter() {
@@ -91,7 +129,7 @@ public:
     
     
     //GETTERS
-    CString prettyPrint() {
+    CString getInfos() {
         return CString("Name : " + m_sName + "\nCreated at : " + getCreationTime()
                 + "\nInitial : " + CString(m_initial) + "\nStep : " + CString(m_step)
                 + "\nCooldown : " + CString(m_cooldown) + "\nDelay : " + CString(m_delay)
@@ -121,12 +159,70 @@ public:
         return "Unknown date";
     }
     
-    int getCurrentValue() {
-        return this->m_current_value;
+    bool hasActiveCooldown() {
+        double diffTime = difftime(time(nullptr),this->m_last_change);
+        if (diffTime < this->m_cooldown || this->m_cooldown == 0) {
+            return false;
+        }
+        return true;
+    }
+    
+    CString getCurrentValue() {
+        return CString(this->m_current_value);
+    }
+    
+    int getPreviousValue() {
+        return this->m_previous_value;
+    }
+    
+    int getMinimumValue() {
+        return this->m_previous_value;
+    }
+    
+    int getMaximumValue() {
+        return this->m_maximum_value;
+    }
+    
+    CString sendMessage() {
+        MCString map = MCString();
+        map.insert(std::pair<CString,CString>("NAME",this->m_sName));
+        map.insert(std::pair<CString,CString>("INITIAL",this->m_initial));
+        map.insert(std::pair<CString,CString>("STEP",this->m_step));
+        map.insert(std::pair<CString,CString>("COOLDOWN",this->m_cooldown));
+        map.insert(std::pair<CString,CString>("DELAY",this->m_delay));
+        map.insert(std::pair<CString,CString>("PREVIOUS_VALUE",this->m_previous_value));
+        map.insert(std::pair<CString,CString>("CURRENT_VALUE",this->m_current_value));
+        map.insert(std::pair<CString,CString>("MINIMUM_VALUE",this->m_minimum_value));
+        map.insert(std::pair<CString,CString>("MAXIMUM_VALUE",this->m_maximum_value));
+        return CString::NamedFormat(this->m_sMessage,map);
     }
     
     
     //SETTERS
+    void setName(const CString sName) {
+        this->m_sName = sName;
+    }
+    
+    void setInitial(const int initial) {
+        this->m_initial = initial;
+    }
+    
+    void setStep(const int step) {
+        this->m_step = step;
+    }
+    
+    void setCooldown(const int cooldown) {
+        this->m_cooldown = cooldown;
+    }
+    
+    void setDelay(const int delay) {
+        this->m_delay = delay;
+    }
+    
+    void setMessage(const CString& sMessage) {
+        this->m_sMessage = sMessage;
+    }
+    
     /**
      * Reset the counter at resetValue.
      * @param resetValue the value that counter will take.
@@ -144,41 +240,29 @@ public:
         this->reset(this->m_initial);
     }
     
-    /**
-     * Increment the counter by step value.
-     * @param step
-     */
     void increment(int step) {
         this->preChangeValue();
         this->m_current_value += step;
         this->postChangeValue();
     }
     
-    /**
-     * Increment the counter by default value of step for the counter.
-     */
     void incrementDefault() {
         this->increment(this->m_step);
     }
     
-    /**
-     * Decrement the counter by step value.
-     * @param step
-     */
     void decrement(const int step) {
         this->preChangeValue();
         this->m_current_value -= step;
         this->postChangeValue();
     }
     
-    /**
-     * Decrement the counter by default value of step for the counter.
-     */
     void decrementDefault() {
         this->decrement(this->m_step);
     }
     
 };
+
+
 
 class CCountersMod : public CModule {
 protected:
@@ -208,7 +292,7 @@ protected:
      * @return 
      */
     CString checkStringValue(const CString text, CString defaultText) {
-        return text.size() > 0 ? text : defaultText;
+        return text.empty() ? defaultText : text;
     }
     
     /**
@@ -220,13 +304,14 @@ protected:
      * @param delay the delay to write message on channel
      * @param sMessage the message to write on channel when current value change
      */
-    void createCounter(const CString& sName, const int initValue = 0, const int step = 1,
-    const int cooldown = 0, const int delay = 0, const CString& sMessage = "[NAME] has value : [CURRENT_VALUE]") {
+    void createCounter(const CString& sName, const int initValue = DEFAULT_INITIAL,
+    const int step = DEFAULT_STEP, const int cooldown = DEFAULT_COOLDOWN,
+    const int delay = DEFAULT_DELAY, const CString& sMessage = DEFAULT_MESSAGE) {
         CCounter addCounter = CCounter(sName, initValue, step, cooldown, delay, sMessage);
         this->m_counters.insert(std::pair<CString,CCounter>(sName, addCounter));
         PutModule("Compteur ajouté : " + addCounter.getName());
         PutModule("Compteur créé le : " + addCounter.getCreationTime());
-        PutModule(addCounter.prettyPrint());
+        PutModule(addCounter.getInfos());
     }
     
     /**
@@ -253,12 +338,12 @@ protected:
         std::vector<std::string> args = std::vector<std::string>();
 
         for (const CString& arg : vsArgs) {
-            if (arg.size() > 0) {
+            if (!arg.empty()) {
                 PutModule("Argument : " + arg);
                 args.push_back((std::string)arg);
             }
             else {
-                PutModule("Argument vide");
+                PutModule("Argument vide.");
             }
         }
         try {
@@ -286,8 +371,9 @@ protected:
         PutModule("Message : " + sMessage);
         PutModule("Name : " + sName);
         
-        this->createCounter(checkStringValue(sName,"counter"),convertWithDefaultValue(sInitValue,0),convertWithDefaultValue(sStepValue,1),convertWithDefaultValue(sCooldownValue,0),
-                convertWithDefaultValue(sDelayValue,0),checkStringValue(sMessage,"[NAME] has value : [CURRENT_VALUE]"));
+        this->createCounter(checkStringValue(sName,"counter"),convertWithDefaultValue(sInitValue,DEFAULT_INITIAL),
+                convertWithDefaultValue(sStepValue,DEFAULT_STEP),convertWithDefaultValue(sCooldownValue,DEFAULT_COOLDOWN),
+                convertWithDefaultValue(sDelayValue,DEFAULT_DELAY),checkStringValue(sMessage,DEFAULT_MESSAGE));
         this->m_parserCreate.clearVariables();
 //        MCString msRet;
 //        CString::size_type tokensNb4 = sCommand.OptionSplit(msRet);
@@ -299,13 +385,9 @@ protected:
         
     }
     
-    /**
-     * Command of module to delete a counter.
-     * @param sCommand command written by user
-     */
     void deleteCounterCommand(const CString& sCommand) {
         CString sName = sCommand.Token(1);
-        if (sName.size() > 0) {
+        if (!sName.empty()) {
             this->m_counters.erase(sName);
         }
     }
@@ -316,7 +398,7 @@ protected:
      * If second value is specified, execute first function as argument with value.\n
      * If second value is not specified, execute function that doesn't require value
      * (use default value from the counter for this command).
-     * @param sCommand command passed written by user
+     * @param sCommand command written by user
      * @param execute function to execute with value
      * @param executeWithDefault function to execute without value
      */
@@ -324,19 +406,28 @@ protected:
     std::function<void(CCounter&)> executeWithDefault) {
         CString sName = sCommand.Token(1);
         CString sStep = sCommand.Token(2);
-        if (sName.size() > 0) {
+        if (!sName.empty()) {
             try {
                 CCounter& counter = this->m_counters.at(sName);
                 PutModule("Ancienne valeur : " + CString(counter.getCurrentValue()));
-                if (sStep.size() > 0) {
-                    PutModule("Incrémentation de : " + sStep);
-                    execute(counter, sStep.ToInt());
-                }
-                else {
-                    PutModule("Incrémentation par défaut.");
+                if (sStep.empty()) {
+                    PutModule("Excution par défaut.");
                     executeWithDefault(counter);
                 }
+                else {
+                    PutModule("Exécution de : " + sStep);
+                    execute(counter, sStep.ToInt());
+                }
                 PutModule("Valeur courante : " + CString(counter.getCurrentValue()));
+                if (!counter.hasActiveCooldown()) {
+                    CString formattedMessage = counter.sendMessage();
+                    PutModule(formattedMessage);
+                    CIRCNetwork *network = GetNetwork();
+                    std::vector<CChan*> channels = network->GetChans();
+                    for (CChan* channel : channels) {
+                        PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
+                    }
+                }
             }
             catch (const std::out_of_range oor) {
                 PutModule("Counter not found.");
@@ -344,49 +435,57 @@ protected:
         }
     }
     
-    /**
-     * Command of module to reset a counter.
-     * @param sCommand command written by user
-     */
     void resetCounterCommand(const CString& sCommand) {
         this->executeSimpleCommand(sCommand,&CCounter::reset,&CCounter::resetDefault);
     }
     
-    /**
-     * Command of module to increment the counter.
-     * @param sCommand command written by user
-     */
     void incrementCounterCommand(const CString& sCommand) {
         this->executeSimpleCommand(sCommand,&CCounter::increment,&CCounter::incrementDefault);
     }
     
-    /**
-     * Command of module to decrement a counter.
-     * @param sCommand command written by user
-     */
     void decrementCounterCommand(const CString& sCommand) {
         this->executeSimpleCommand(sCommand,&CCounter::decrement,&CCounter::decrementDefault);
     }
     
-    /**
-     * Command of module to show informations of a counter.
-     * @param sCommand command written by user
-     */
     void infoCounterCommand(const CString& sCommand) {
         CString sName = sCommand.Token(1);
         try {
             CCounter& counter = this->m_counters.at(sName);
-            PutModule(counter.prettyPrint());
+            PutModule(counter.getInfos());
         }
         catch (const std::out_of_range oor) {
             PutModule("Counter not found.");
         }
     }
     
-    /**
-     * Command of module to list actives counters.
-     * @param sCommand command written by user (not used)
-     */
+    void setPropertyCounterCommand(const CString& sCommand) {
+        CString sName = sCommand.Token(1);
+        CString sProperty = sCommand.Token(2);
+        CString sValue = sCommand.Token(3);
+        try {
+            CCounter& counter = this->m_counters.at(sName);
+            if (!sProperty.empty() && !sValue.empty()) {
+                if (sProperty.Equals("NAME"))
+                    counter.setName(sValue);
+                else if (sProperty.Equals("INITIAL"))
+                    counter.setInitial(convertWithDefaultValue(sValue,0));
+                else if (sProperty.Equals("STEP"))
+                    counter.setStep(convertWithDefaultValue(sValue,1));
+                else if (sProperty.Equals("COOLDOWN"))
+                    counter.setCooldown(convertWithDefaultValue(sValue,0));
+                else if (sProperty.Equals("DELAY"))
+                    counter.setDelay(convertWithDefaultValue(sValue,0));
+                else if (sProperty.Equals("MESSAGE"))
+                    counter.setMessage(sValue);
+                else
+                    PutModule("Incorrect property !");
+            }
+        }
+        catch (const std::out_of_range oor) {
+            PutModule("Counter not found.");
+        }
+    }
+    
     void listCountersCommand(const CString& sCommand) {
         CString sCounters = "Your counters : ";
         for (std::map<CString,CCounter>::const_iterator it = this->m_counters.cbegin(); it != this->m_counters.cend(); ++it) {
@@ -421,14 +520,16 @@ public:
                 "<name> [reset_value]","Reset <name> counter at reset_value or default value for counter.");
         AddCommand("incr", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::incrementCounterCommand),
                 "<name> [step]", "Increment <name> counter.");
-        AddCommand("+", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::incrementCounterCommand),
-                "<name> [step]", "Increment <name> counter.");
+//        AddCommand("+", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::incrementCounterCommand),
+//                "<name> [step]", "Increment <name> counter.");
         AddCommand("decr", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::decrementCounterCommand),
                 "<name> [step]","Decrement <name> counter.");
-        AddCommand("-", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::decrementCounterCommand),
-                "<name> [step]","Decrement <name> counter.");
+//        AddCommand("-", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::decrementCounterCommand),
+//                "<name> [step]","Decrement <name> counter.");
         AddCommand("info", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::infoCounterCommand),
                 "<name>","Show information of <name> counter.");
+        AddCommand("set", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listCountersCommand),
+                "<name> <property> <value>","Set property <property> to <value> for counter <name>.");
         AddCommand("list", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listCountersCommand),
                 "","List counters.");
     }
@@ -436,7 +537,7 @@ public:
     virtual bool OnLoad(const CString& sArgs, CString& sMessage) override {
         return true;
     }
-
+    
     virtual ~CCountersMod() {
         
     }
