@@ -2,29 +2,46 @@
 #include <string>
 #include <ctime>
 #include <functional>
-#include <znc/znc.h>
+#include <znc/main.h>
+#include <znc/Modules.h>
 #include <znc/IRCNetwork.h>
 #include <znc/Chan.h>
 #include "argparse.hpp"
 
-//class Property {
-//protected:
-//    enum class EnumProperty {
-//        NAME,
-//        INITIAL,
-//        STEP,
-//        COOLDOWN,
-//        DELAY,
-//        MESSAGE
-//    } lol;
-//    
-//    
-//public:
-//    
-//    Property(EnumProperty ep) {
-//        
-//    }
+
+//TESTS
+
+
+//class CCounter;
 //
+//class MyMap : public MCString {
+//    
+//    class MyIterator : public iterator {
+//        
+//    public:
+//        MyIterator() {
+//            
+//        }
+//        
+//        
+//        
+//    };
+//    
+//    protected:
+//        CCounter* m_counter;
+//    
+//    public:
+//        MyMap(CCounter* counter) {
+//            this->m_counter = counter;
+//        }
+//        
+//        const_iterator find(const key_type& k) {
+//            return MyIterator();//std::map<CString,CString>::iterator();
+//        }
+////        MCString::mapped_type& at(const key_type& k) override {
+////            return MCString::at(k);
+////        }
+//        
 //};
 
 const int DEFAULT_INITIAL = 0;
@@ -40,7 +57,7 @@ protected:
     
     
     //DATA MEMBERS
-    //"constants" defined by constructor
+    //"constants" defined by constructor and can be changed by user with "set" command
     CString m_sName;
     int m_initial;
     int m_step;
@@ -54,6 +71,7 @@ protected:
     int m_minimum_value;
     int m_maximum_value;
     std::time_t m_last_change;
+    double m_time_chrono;
     
     //other variable
     std::time_t m_creation_datetime;
@@ -62,16 +80,27 @@ protected:
     //MEMBER FUNCTIONS
     /**
      * Set the previous value at current value and set last_change to now.
-     * Must be called before changing current value.
+     * Should be called before changing current value.
      */
     void preChangeValue() {
         this->m_previous_value = this->m_current_value;
-        this->m_last_change = time(nullptr);
+        //to improve : it's possible to send multiple messages in same time !
+        time_t now = time(nullptr);
+        double diffTime = difftime(now, this->m_last_change);
+        this->m_time_chrono -= diffTime;
+        if (this->m_time_chrono < 0) {
+            this->m_time_chrono = this->m_cooldown;
+        }
+        //to avoid flood of messages when there difference between 'm_last_change' and 'now' is 0
+        if (diffTime == 0) {
+            this->m_time_chrono -= 1;
+        }
+        this->m_last_change = now;
     }
     
     /**
      * Change minimum and maximum values depending of current value.
-     * Must be called after changing current valaue.
+     * Should be called after changing current valaue.
      */
     void postChangeValue() {
         if (this->m_current_value < this->m_minimum_value) {
@@ -95,20 +124,22 @@ public:
 //        formatMap.insert(std::pair<CString,CString>("NAME"),counter.);
     }
     
-    //CONSTRUCTOR & DESTRUCTOR
+    //CONSTRUCTORS & DESTRUCTOR
     CCounter(const CString& sName, const int initial = DEFAULT_INITIAL, const int step = DEFAULT_STEP,
             const int cooldown = DEFAULT_COOLDOWN, const int delay = DEFAULT_DELAY,
-            const CString& sMessage = DEFAULT_MESSAGE) {
-        this->m_sName = sName;
-        this->m_initial = initial;
-        this->m_step = step;
-        this->m_cooldown = cooldown;
-        this->m_delay = delay;
-        this->m_sMessage  = sMessage;
+            const CString& sMessage = DEFAULT_MESSAGE) : m_sName(sName), m_initial(initial),
+            m_step(step), m_cooldown(cooldown), m_delay(delay), m_sMessage(sMessage) {
+//        this->m_sName = sName;
+//        this->m_initial = initial;
+//        this->m_step = step;
+//        this->m_cooldown = cooldown;
+//        this->m_delay = delay;
+//        this->m_sMessage  = sMessage;
         
         this->m_previous_value = this->m_current_value = initial;
         this->m_maximum_value = this->m_minimum_value = this->m_current_value;
         this->m_last_change = this->m_creation_datetime = time(nullptr);
+        this->m_time_chrono = -1;
         
 //        this->m_formatMap = MCString();
 //        this->m_formatMap.insert(std::pair<CString,CString>("NAME",this->m_sName));
@@ -120,7 +151,6 @@ public:
 //        this->m_formatMap.insert(std::pair<CString,CString>("CURRENT_VALUE",this->m_current_value));
 //        this->m_formatMap.insert(std::pair<CString,CString>("MINIMUM_VALUE",this->m_minimum_value));
 //        this->m_formatMap.insert(std::pair<CString,CString>("MAXIMUM_VALUE",this->m_maximum_value));
-        
     }
     
     ~CCounter() {
@@ -136,11 +166,16 @@ public:
                 + "\nMessage : " + m_sMessage + "\nCurrent : " + CString(m_current_value)
                 + "\nPrevious : " + CString(m_previous_value) + "\nMinimum : "
                 + CString(m_minimum_value) + "\nMaximum : " + CString(m_maximum_value)
-                + "\nLast change : " + getLastChangeTime());
+                + "\nLast change : " + getLastChangeTime() + "\nDifftime : "
+                + CString(m_time_chrono));
     }
     
     CString getName() {
         return this->m_sName;
+    }
+    
+    int getDelay() {
+        return this->m_delay;
     }
     
     CString getCreationTime() {
@@ -158,13 +193,17 @@ public:
         }
         return "Unknown date";
     }
-    
+    //to improve : 
     bool hasActiveCooldown() {
-        double diffTime = difftime(time(nullptr),this->m_last_change);
-        if (diffTime < this->m_cooldown || this->m_cooldown == 0) {
-            return false;
-        }
-        return true;
+        return this->m_time_chrono < this->m_cooldown && this->m_cooldown != 0;
+//        return this->m_difftime;
+//        double diffTime = difftime(time(nullptr),this->m_last_change);
+//        return diffTime;
+//        return (this->m_cooldown > 0 && diffTime < this->m_cooldown);
+//        if (diffTime < this->m_cooldown && this->m_cooldown != 0) {
+//            return true;
+//        }
+//        return false;
     }
     
     CString getCurrentValue() {
@@ -183,8 +222,15 @@ public:
         return this->m_maximum_value;
     }
     
+    double getDiffTime() {
+        return this->m_time_chrono;
+    }
+    
+    //to improve : make a child class of MCString that call a function to access
+    //data to avoid changing variables for each message (if it's possible, maybe with allocators ?)
+    //and (if possible) make the map static that call functions of a CCounter as argument to reduce memory
     CString sendMessage() {
-        MCString map = MCString();
+        MCString map = MCString();//MyMap(this);
         map.insert(std::pair<CString,CString>("NAME",this->m_sName));
         map.insert(std::pair<CString,CString>("INITIAL",this->m_initial));
         map.insert(std::pair<CString,CString>("STEP",this->m_step));
@@ -262,6 +308,51 @@ public:
     
 };
 
+#ifdef HAVE_PTHREAD
+class CCounterJob : public CModuleJob {
+    
+protected:
+    
+    CCounter m_counter;
+    
+    
+public:
+
+    CCounterJob(CModule* pModule, CCounter counter) : CModuleJob(pModule, "counters",
+    "Send message for counter on channel after a delay"), m_counter(counter) {
+        
+    }
+    
+    virtual ~CCounterJob() override {
+        if (wasCancelled()) {
+            GetModule()->PutModule("Counter job cancelled");
+        }
+        else {
+            GetModule()->PutModule("Counter job destroyed");
+        }
+    }
+    
+    virtual void runThread() override {
+        int delay = m_counter.getDelay();
+        for (int i = 0; i < delay; i++) {
+            if (wasCancelled()) {
+                return;
+            }
+            sleep(1);
+        }
+    }
+    
+    virtual void runMain() override {
+        CString formattedMessage = m_counter.sendMessage();
+        CIRCNetwork* network = GetModule()->GetNetwork();
+        std::vector<CChan*> channels = network->GetChans();
+        for (CChan* channel : channels) {
+            GetModule()->PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
+        }
+    }
+    
+};
+#endif
 
 
 class CCountersMod : public CModule {
@@ -295,7 +386,7 @@ protected:
         return text.empty() ? defaultText : text;
     }
     
-    /**
+/**
      * Create a counter.
      * @param sName the name of the counter
      * @param initValue the initial value of counter
@@ -304,11 +395,11 @@ protected:
      * @param delay the delay to write message on channel
      * @param sMessage the message to write on channel when current value change
      */
-    void createCounter(const CString& sName, const int initValue = DEFAULT_INITIAL,
-    const int step = DEFAULT_STEP, const int cooldown = DEFAULT_COOLDOWN,
-    const int delay = DEFAULT_DELAY, const CString& sMessage = DEFAULT_MESSAGE) {
+    void createCounter(const CString& sName, const int initValue,
+            const int step, const int cooldown, const int delay, const CString& sMessage) {
+        
         CCounter addCounter = CCounter(sName, initValue, step, cooldown, delay, sMessage);
-        this->m_counters.insert(std::pair<CString,CCounter>(sName, addCounter));
+        this->m_counters.insert(std::pair<CString, CCounter>(sName, addCounter));
         PutModule("Compteur ajouté : " + addCounter.getName());
         PutModule("Compteur créé le : " + addCounter.getCreationTime());
         PutModule(addCounter.getInfos());
@@ -320,21 +411,8 @@ protected:
      */
     void createCounterCommand(const CString& sCommand) {
         PutModule("Commande écrite : " + sCommand);
-        /*
-        std::vector<CChan*> channels = GetNetwork()->GetChans();
-        std::vector<CChan*>::iterator it;
-        for (it = channels.begin(); it != channels.end(); ++it) {
-            PutModule("PRIVMSG " + (*it)->GetName() + " :Message test 2");
-            PutIRC("PRIVMSG " + (*it)->GetName() + " :Message test 3");
-        }
-        PutIRC("PRIVMSG test :message privé ?");
-        */
-//        GetNetwork()->PutIRC("Test");
-//        GetNetwork()->PutIRC("PRIVMSG #tests :Message test 4");
-        
-        
         VCString vsArgs;
-        CString::size_type numberTokens = sCommand.Split(" ", vsArgs, false, "\"", "\"", true, true);
+        sCommand.Split(" ", vsArgs, false, "\"", "\"", true, true);
         std::vector<std::string> args = std::vector<std::string>();
 
         for (const CString& arg : vsArgs) {
@@ -419,14 +497,21 @@ protected:
                     execute(counter, sStep.ToInt());
                 }
                 PutModule("Valeur courante : " + CString(counter.getCurrentValue()));
+                bool activeCooldown = counter.hasActiveCooldown();
+                PutModule("Cooldown actif : " + CString(activeCooldown));
+                double diffTime = counter.getDiffTime();
+                PutModule("Différence de temps : " + CString(diffTime));
                 if (!counter.hasActiveCooldown()) {
-                    CString formattedMessage = counter.sendMessage();
-                    PutModule(formattedMessage);
-                    CIRCNetwork *network = GetNetwork();
-                    std::vector<CChan*> channels = network->GetChans();
-                    for (CChan* channel : channels) {
-                        PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
-                    }
+#ifdef HAVE_PTHREAD
+                    AddJob(new CCounterJob(this, counter));
+#endif
+//                    CString formattedMessage = counter.sendMessage();
+//                    PutModule(formattedMessage);
+//                    CIRCNetwork *network = GetNetwork();
+//                    std::vector<CChan*> channels = network->GetChans();
+//                    for (CChan* channel : channels) {
+//                        PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
+//                    }
                 }
             }
             catch (const std::out_of_range oor) {
@@ -528,7 +613,7 @@ public:
 //                "<name> [step]","Decrement <name> counter.");
         AddCommand("info", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::infoCounterCommand),
                 "<name>","Show information of <name> counter.");
-        AddCommand("set", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listCountersCommand),
+        AddCommand("set", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::setPropertyCounterCommand),
                 "<name> <property> <value>","Set property <property> to <value> for counter <name>.");
         AddCommand("list", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listCountersCommand),
                 "","List counters.");
