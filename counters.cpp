@@ -397,16 +397,16 @@ protected:
     /**
      * Create a counter.
      * @param sName the name of the counter
-     * @param initValue the initial value of counter
+     * @param initial the initial value of counter
      * @param step the step by default to increment of decrement
      * @param cooldown the cooldown between 2 increment or decrement
      * @param delay the delay to write message on channel
      * @param sMessage the message to write on channel when current value change
      */
-    void createCounter(const CString& sName, const int initValue,
+    void createCounter(const CString& sName, const int initial,
             const int step, const int cooldown, const int delay, const CString& sMessage) {
         if (!m_counters.count(sName)) {
-            CCounter addCounter = CCounter(sName, initValue, step, cooldown, delay, sMessage);
+            CCounter addCounter = CCounter(sName, initial, step, cooldown, delay, sMessage);
             auto created = m_counters.insert(std::pair<CString, CCounter>(sName, addCounter));
             if (created.second) {
                 PutModule("Counter '" + addCounter.getName() + "' created.");
@@ -487,14 +487,14 @@ protected:
 //            PutModule("error bad cast");
 //        }
         //retrieve all arguments as strings because i get std::bad_cast with other typenames like int
-        CString sInitValue = CString(m_parserCreate.retrieve<std::string>("initvalue"));
+        CString sInitial = CString(m_parserCreate.retrieve<std::string>("initial"));
         CString sStepValue = CString(m_parserCreate.retrieve<std::string>("step"));
         CString sCooldownValue = CString(m_parserCreate.retrieve<std::string>("cooldown"));
         CString sDelayValue = CString(m_parserCreate.retrieve<std::string>("delay"));
         CString sMessage = CString(m_parserCreate.retrieve<std::string>("message"));
         CString sName = CString(m_parserCreate.retrieve<std::string>("name"));
         
-        createCounter(checkStringValue(sName,"counter"),convertWithDefaultValue(sInitValue,DEFAULT_INITIAL),
+        createCounter(checkStringValue(sName,"counter"),convertWithDefaultValue(sInitial,DEFAULT_INITIAL),
                 convertWithDefaultValue(sStepValue,DEFAULT_STEP),convertWithDefaultValue(sCooldownValue,DEFAULT_COOLDOWN),
                 convertWithDefaultValue(sDelayValue,DEFAULT_DELAY),checkStringValue(sMessage,DEFAULT_MESSAGE));
         m_parserCreate.clearVariables();
@@ -628,7 +628,8 @@ protected:
                     PutModule("Incorrect property ! Possibles properties are : name, "
                         "initial, step, cooldown, delay and message.");
                 
-                PutModule("Property '" + sProperty + "' changed to '" + sValue + "' value.");
+                PutModule("Property '" + sProperty + "' of counter '" + sName + 
+                        "' changed to '" + sValue + "' value.");
             }
             catch (const std::out_of_range oor) {
                 PutModule("Counter '" + sName + "' not found.");
@@ -695,7 +696,7 @@ public:
         m_parserCreate = ArgumentParser();
         m_parserCreate.useExceptions(true);
         m_parserCreate.ignoreFirstArgument(true);
-        m_parserCreate.addArgument("-i", "--initvalue", 1, true);
+        m_parserCreate.addArgument("-i", "--initial", 1, true);
         m_parserCreate.addArgument("-s", "--step", 1, true);
         m_parserCreate.addArgument("-c", "--cooldown", 1, true);
         m_parserCreate.addArgument("-d", "--delay", 1, true);
@@ -714,7 +715,7 @@ public:
         AddHelpCommand();
         //COMMAND FOR COUNTERS
         AddCommand("Create", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::createCounterCommand),
-                "[--initvalue | -i <initial>] [--step | -s <step>] [--cooldown | -c <cooldown>]"
+                "[--initial | -i <initial>] [--step | -s <step>] [--cooldown | -c <cooldown>]"
                 "[--delay | -d <delay>] [--message | -m \"<message>\"] <name>",
                 "Create a counter.");
         AddCommand("Delete", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::deleteCounterCommand),
