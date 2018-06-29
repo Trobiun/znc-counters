@@ -1,5 +1,6 @@
 # ZNC Counters
 A ZNC (1.6.x version) module to count things using commands.
+I develop this mainly for my needs but I try to make it user-friendly.
 
 ## Counters
 Obviously this is the main object used in this module. It can increment, decrement and reset
