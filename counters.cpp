@@ -82,7 +82,7 @@ protected:
         if (m_time_chrono < 0) {
             m_time_chrono = m_cooldown;
         }
-        //to avoid flood of messages when there difference between 'm_last_change' and 'now' is 0
+        //to avoid flood of messages when the difference between 'm_last_change' and 'now' is 0
         if (diffTime == 0) {
             m_time_chrono -= 1;
         }
@@ -129,17 +129,17 @@ public:
     
     
     //GETTERS
-    CString getInfos() {
-        return CString("Name : " + m_sName + "\nCreated at : " + getCreationTime()
+    CString getInfos(CUser* user) {
+        return CString("Name : " + m_sName + "\nCreated at : " + getCreationTime(user)
                 + "\nInitial : " + CString(m_initial) + "\nStep : " + CString(m_step)
                 + "\nCooldown : " + CString(m_cooldown) + "\nDelay : " + CString(m_delay)
                 + "\nMessage : " + m_sMessage + "\nCurrent : " + CString(m_current_value)
                 + "\nPrevious : " + CString(m_previous_value) + "\nMinimum : "
                 + CString(m_minimum_value) + "\nMaximum : " + CString(m_maximum_value)
-                + "\nLast change : " + getLastChangeTime());
+                + "\nLast change : " + getLastChangeTime(user));
     }
     
-    CTable getInfosTable() {
+    CTable getInfosTable(CUser* user) {
         CTable tableInfos = CTable();
         tableInfos.AddColumn("Attribute");
         tableInfos.AddColumn("Value");
@@ -148,7 +148,7 @@ public:
         tableInfos.SetCell("Value",m_sName);
         tableInfos.AddRow();
         tableInfos.SetCell("Attribute","Created at");
-        tableInfos.SetCell("Value",getCreationTime());
+        tableInfos.SetCell("Value",getCreationTime(user));
         tableInfos.AddRow();
         tableInfos.SetCell("Attribute","Initial");
         tableInfos.SetCell("Value",CString(m_initial));
@@ -178,7 +178,7 @@ public:
         tableInfos.SetCell("Value",CString(m_maximum_value));
         tableInfos.AddRow();
         tableInfos.SetCell("Attribute","Last change");
-        tableInfos.SetCell("Value",getLastChangeTime());
+        tableInfos.SetCell("Value",getLastChangeTime(user));
         return tableInfos;
     }
     
@@ -190,21 +190,14 @@ public:
         return m_delay;
     }
     
-    CString getCreationTime() {
-        char mbstr[20];
-        if (std::strftime(mbstr, sizeof(mbstr), "%Y/%m/%d %H:%M:%S", std::localtime(&m_creation_datetime))) {
-            return CString(mbstr);
-        }
-        return "Unknown date";
+    CString getCreationTime(CUser* user) {
+        return CUtils::FormatTime(m_creation_datetime, "%Y/%m/%d %H:%M:%S", user->GetTimezone());
     }
     
-    CString getLastChangeTime() {
-        char mbstr[20];
-        if (std::strftime(mbstr, sizeof(mbstr), "%Y/%m/%d %H:%M:%S", std::localtime(&m_last_change))) {
-            return CString(mbstr);
-        }
-        return "Unknown date";
+    CString getLastChangeTime(CUser* user) {
+        return CUtils::FormatTime(m_last_change, "%Y/%m/%d %H:%M:%S", user->GetTimezone());
     }
+    
     //to improve ?
     bool hasActiveCooldown() {
         return m_time_chrono < m_cooldown && m_cooldown != 0;
@@ -594,7 +587,7 @@ protected:
         CString sName = sCommand.Token(1);
         try {
             CCounter& counter = m_counters.at(sName);
-            PutModule(counter.getInfosTable());
+            PutModule(counter.getInfosTable(GetUser()));
         }
         catch (const std::out_of_range oor) {
             PutModule("Counter " + sName + " not found.");
