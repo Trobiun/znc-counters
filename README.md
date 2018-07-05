@@ -47,7 +47,7 @@ It consists to use counters with a sort of alias, but it can be used by others u
   List all existing listeners.
 
 ### How to use
-  The <nickname> user has to send a message like "<listener_name> <command> [<arg>]" with <command> which can be replaced by incr, decr etc, and <arg> will be the argument of <command>.
+  The <nickname> user has to send a message like `"<listener_name> <command> [<arg>]` with `<command>` which can be replaced by incr, decr etc, and `<arg>` will be the argument of `<command>`.
 
 ## Variables and default values
 Variables that can't be changed manually by user :
