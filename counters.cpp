@@ -683,7 +683,6 @@ protected:
     
     
 public:
-    
     MODCONSTRUCTOR(CCountersMod) {
         //create ArgumentParser to parse arguments for the command that create a counter
         m_parserCreate = ArgumentParser();
@@ -695,47 +694,47 @@ public:
         m_parserCreate.addArgument("-d", "--delay", 1, true);
         m_parserCreate.addArgument("-m", "--message", 1, true);
         m_parserCreate.addFinalArgument("name", 1, false);
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("NAME",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("INITIAL",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("STEP",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("COOLDOWN",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("DELAY",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("PREVIOUS_VALUE",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("CURRENT_VALUE",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("MINIMUM_VALUE",""));
-        MyMap::getInstance().insert(std::make_pair<CString,CString>("MAXIMUM_VALUE",""));
-        
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("NAME", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("INITIAL", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("STEP", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("COOLDOWN", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("DELAY", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("PREVIOUS_VALUE", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("CURRENT_VALUE", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("MINIMUM_VALUE", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("MAXIMUM_VALUE", ""));
+
         AddHelpCommand();
         //COMMAND FOR COUNTERS
-        AddCommand("Create", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::createCounterCommand),
-                "[--initial | -i <initial>] [--step | -s <step>] [--cooldown | -c <cooldown>]"
-                "[--delay | -d <delay>] [--message | -m \"<message>\"] <name>",
-                "Create a counter.");
-        AddCommand("Delete", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::deleteCounterCommand),
-                "<name>", "Delete <name> counter.");
-        AddCommand("Reset", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::resetCounterCommand),
-                "<name> [reset_value]", "Reset <name> counter.");
-        AddCommand("Incr", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::incrementCounterCommand),
-                "<name> [step]", "Increment <name> counter.");
-        AddCommand("Decr", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::decrementCounterCommand),
-                "<name> [step]", "Decrement <name> counter.");
-        AddCommand("Info", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::infoCounterCommand),
-                "<name>", "Show information of <name> counter.");
-        AddCommand("Set", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::setPropertyCounterCommand),
-                "<name> <property> <value>", "Set property <property> to <value> for counter <name>.");
-        AddCommand("List", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listCountersCommand),
-                "", "List counters.");
-        AddCommand("Print", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::printCounterCommand),
-                "<name>", "Print message for <name> counter.");
-        
+        AddCommand("Create", t_d("[--initial | -i <initial>] [--step | -s <step>] [--cooldown | -c <cooldown>]"
+                "[--delay | -d <delay>] [--message | -m \"<message>\"] <name>"),
+                t_d("Create a counter."),
+                [ = ](const CString & sLine){CCountersMod::createCounterCommand(sLine);});
+        AddCommand("Delete", "<name>", "Delete <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::deleteCounterCommand(sLine);});
+        AddCommand("Reset", "<name> [reset_value]", "Reset <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::resetCounterCommand(sLine);});
+        AddCommand("Incr", "<name> [step]", "Increment <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::incrementCounterCommand(sLine);});
+        AddCommand("Decr", "<name> [step]", "Decrement <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::decrementCounterCommand(sLine);});
+        AddCommand("Info", "<name>", "Show information of <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::infoCounterCommand(sLine);});
+        AddCommand("Set", "<name> <property> <value>", "Set property <property> to <value> for counter <name>.",
+                [ = ](const CString & sLine){CCountersMod::setPropertyCounterCommand(sLine);});
+        AddCommand("List", "", "List counters.",
+                [ = ](const CString & sLine){CCountersMod::listCountersCommand(sLine);});
+        AddCommand("Print", "<name>", "Print message for <name> counter.",
+                [ = ](const CString & sLine){CCountersMod::printCounterCommand(sLine);});
+
         //COMMANDS FOR LISTENERS
-        AddCommand("CreateListener", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::createListenerCommand),
-                "<name> <nickname> <listener_name>", "Create a listener : alias that can be used "
-                "on any IRC client (like Twitch).");
-        AddCommand("DeleteListener", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::deleteListenerCommand),
-                "<nickname> <listener_name>", "Delete a listener.");
-        AddCommand("ListListeners", static_cast<CModCommand::ModCmdFunc>(&CCountersMod::listListenersCommand),
-                "", "List listeners.");
+        AddCommand("CreateListener", "<name> <nickname> <listener_name>", "Create a listener : alias that can be used "
+                "on any IRC client (like Twitch).",
+                [ = ](const CString & sLine){CCountersMod::createListenerCommand(sLine);});
+        AddCommand("DeleteListener", "<nickname> <listener_name>", "Delete a listener.",
+                [ = ](const CString & sLine){CCountersMod::deleteListenerCommand(sLine);});
+        AddCommand("ListListeners", "", "List listeners.",
+                [ = ](const CString & sLine){CCountersMod::listListenersCommand(sLine);});
     }
     
     virtual bool OnLoad(const CString& sArgs, CString& sMessage) override {
