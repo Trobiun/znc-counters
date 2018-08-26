@@ -16,7 +16,9 @@ const int DEFAULT_INITIAL = 0;
 const int DEFAULT_STEP = 1;
 const int DEFAULT_COOLDOWN = 0;
 const int DEFAULT_DELAY = 0;
+const int DEFAULT_EACH = 1;
 const std::string DEFAULT_MESSAGE = "{NAME} has value : {CURRENT_VALUE}";
+const std::string FORMAT_TIME = "%Y/%m/%d %H:%M:%S";
 
 class MyMap : public MCString {
 private:
@@ -50,14 +52,16 @@ protected:
     //"constants" defined by constructor and can be changed by user with "set" command
     CString m_sName;
     int m_initial;
-    int m_step;
+    int m_step; /**< Step to increment by default. */
     int m_cooldown; /**< Cooldown between 2 messages when value change. */
     int m_delay; /**< Delay to send message when value change. */
+    int m_each; /**< Interval of current value between two messages. ex : every 10 increments or decrements send the message */
     CString m_sMessage; /**< The message to send when value change. */
 
     //values that can change
     int m_current_value;
     int m_previous_value;
+    int m_previous_printed_value;
     int m_minimum_value;
     int m_maximum_value;
     std::time_t m_last_change;
@@ -75,14 +79,13 @@ protected:
      */
     void preChangeValue() {
         m_previous_value = m_current_value;
-        //to improve : it's possible to send multiple messages in same time !
         time_t now = time(nullptr);
         double diffTime = difftime(now, m_last_change);
         m_time_chrono -= diffTime;
         if (m_time_chrono < 0) {
             m_time_chrono = m_cooldown;
         }
-        //to avoid flood of messages when the difference between 'm_last_change' and 'now' is 0
+        //to avoid possibility to flood of messages when the difference between 'm_last_change' and 'now' is 0
         if (diffTime == 0) {
             m_time_chrono -= 1;
         }
@@ -115,10 +118,11 @@ public:
 
     CCounter(const CString& sName, const int initial = DEFAULT_INITIAL, const int step = DEFAULT_STEP,
             const int cooldown = DEFAULT_COOLDOWN, const int delay = DEFAULT_DELAY,
-            const CString& sMessage = DEFAULT_MESSAGE) : m_sName(sName), m_initial(initial),
-    m_step(step), m_cooldown(cooldown), m_delay(delay), m_sMessage(sMessage) {
+            const int each = DEFAULT_EACH, const CString& sMessage = DEFAULT_MESSAGE) :
+    m_sName(sName), m_initial(initial), m_step(step), m_cooldown(cooldown),
+    m_delay(delay), m_each(each), m_sMessage(sMessage) {
 
-        m_previous_value = m_current_value = initial;
+        m_previous_printed_value = m_previous_value = m_current_value = initial;
         m_maximum_value = m_minimum_value = m_current_value;
         m_last_change = m_creation_datetime = time(nullptr);
         m_time_chrono = -1;
@@ -135,9 +139,9 @@ public:
         return CString("Name : " + m_sName + "\nCreated at : " + getCreationTime(user)
                 + "\nInitial : " + CString(m_initial) + "\nStep : " + CString(m_step)
                 + "\nCooldown : " + CString(m_cooldown) + "\nDelay : " + CString(m_delay)
-                + "\nMessage : " + m_sMessage + "\nCurrent : " + CString(m_current_value)
-                + "\nPrevious : " + CString(m_previous_value) + "\nMinimum : "
-                + CString(m_minimum_value) + "\nMaximum : " + CString(m_maximum_value)
+                + "\nEach : " + CString(m_each) + "\nMessage : " + m_sMessage
+                + "\nCurrent : " + CString(m_current_value) + "\nPrevious : " + CString(m_previous_value)
+                + "\nMinimum : " + CString(m_minimum_value) + "\nMaximum : " + CString(m_maximum_value)
                 + "\nLast change : " + getLastChangeTime(user));
     }
 
@@ -163,6 +167,9 @@ public:
         tableInfos.AddRow();
         tableInfos.SetCell("Attribute", "Delay");
         tableInfos.SetCell("Value", CString(m_delay));
+        tableInfos.AddRow();
+        tableInfos.SetCell("Attribute", "Each");
+        tableInfos.SetCell("Value", CString(m_each));
         tableInfos.AddRow();
         tableInfos.SetCell("Attribute", "Message");
         tableInfos.SetCell("Value", m_sMessage);
@@ -193,17 +200,20 @@ public:
     }
 
     CString getCreationTime(CUser* user) {
-        return CUtils::FormatTime(m_creation_datetime, "%Y/%m/%d %H:%M:%S", user->GetTimezone());
+        return CUtils::FormatTime(m_creation_datetime, FORMAT_TIME, user->GetTimezone());
     }
 
     CString getLastChangeTime(CUser* user) {
-        return CUtils::FormatTime(m_last_change, "%Y/%m/%d %H:%M:%S", user->GetTimezone());
+        return CUtils::FormatTime(m_last_change, FORMAT_TIME, user->GetTimezone());
     }
-
-    //to improve ?
 
     bool hasActiveCooldown() {
         return m_time_chrono < m_cooldown && m_cooldown != 0;
+    }
+
+    bool hasMinimumInterval() {
+        int diff = abs(m_current_value - m_previous_printed_value);
+        return diff >= m_each;
     }
 
     CString getCurrentValue() {
@@ -232,6 +242,7 @@ public:
         MyMap::getInstance().at("STEP") = CString(m_step);
         MyMap::getInstance().at("COOLDOWN") = CString(m_cooldown);
         MyMap::getInstance().at("DELAY") = CString(m_delay);
+        MyMap::getInstance().at("EACH") = CString(m_each);
         MyMap::getInstance().at("PREVIOUS_VALUE") = CString(m_previous_value);
         MyMap::getInstance().at("CURRENT_VALUE") = CString(m_current_value);
         MyMap::getInstance().at("MINIMUM_VALUE") = CString(m_minimum_value);
@@ -262,6 +273,10 @@ public:
         m_delay = delay;
     }
 
+    void setEach(const int each) {
+        m_each = each;
+    }
+
     void setMessage(const CString& sMessage) {
         m_sMessage = sMessage;
     }
@@ -276,11 +291,19 @@ public:
         resetValues();
     }
 
-    /**
-     * Reset the counter at the initial value.
-     */
     void resetDefault() {
         reset(m_initial);
+    }
+
+    void recreate(const int recreateValue) {
+        preChangeValue();
+        m_current_value = recreateValue;
+        resetValues();
+        setCurrentValuePrinted();
+    }
+
+    void recreateDefault() {
+        recreate(m_initial);
     }
 
     void increment(int step) {
@@ -303,6 +326,10 @@ public:
         decrement(m_step);
     }
 
+    void setCurrentValuePrinted() {
+        m_previous_printed_value = m_current_value;
+    }
+
 };
 
 #ifdef HAVE_PTHREAD
@@ -321,12 +348,7 @@ public:
     }
 
     virtual ~CCounterJob() override {
-        //        if (wasCancelled()) {
-        //            GetModule()->PutModule("Counter job cancelled");
-        //        }
-        //        else {
-        //            GetModule()->PutModule("Counter job destroyed");
-        //        }
+
     }
 
     virtual void runThread() override {
@@ -346,13 +368,11 @@ public:
         for (CChan* channel : channels) {
             GetModule()->PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
         }
+        //GetModule()->PutUser("/counters " + m_counter.getName() + " " + m_counter.getCurrentValue());
     }
 
 };
 #endif
-
-class CCounterListener {
-};
 
 class CCountersMod : public CModule {
 protected:
@@ -400,13 +420,14 @@ protected:
      * @param delay the delay to write message on channel
      * @param sMessage the message to write on channel when current value change
      */
-    void createCounter(const CString& sName, const int initial,
-            const int step, const int cooldown, const int delay, const CString& sMessage) {
+    void createCounter(const CString& sName, const int initial, const int step,
+            const int cooldown, const int delay, const int each, const CString& sMessage) {
         if (!m_counters.count(sName)) {
-            CCounter addCounter = CCounter(sName, initial, step, cooldown, delay, sMessage);
+            CCounter addCounter = CCounter(sName, initial, step, cooldown, delay, each, sMessage);
             auto created = m_counters.insert(std::pair<CString, CCounter>(sName, addCounter));
             if (created.second) {
                 PutModule("Counter '" + addCounter.getName() + "' created.");
+                //PutUser("/counters " + addCounter.getName() + " " + addCounter.getCurrentValue());
             }
         }
         else {
@@ -482,29 +503,20 @@ protected:
             PutModule("Error invalid argument : " + CString(ex.what()));
             return;
         }
-        //        catch (std::bad_cast) {
-        //            PutModule("error bad cast");
-        //        }
         //retrieve all arguments as strings because i get std::bad_cast with other typenames like int
         CString sInitial = CString(m_parserCreate.retrieve<std::string>("initial"));
         CString sStepValue = CString(m_parserCreate.retrieve<std::string>("step"));
         CString sCooldownValue = CString(m_parserCreate.retrieve<std::string>("cooldown"));
         CString sDelayValue = CString(m_parserCreate.retrieve<std::string>("delay"));
+        CString sEachValue = CString(m_parserCreate.retrieve<std::string>("each"));
         CString sMessage = CString(m_parserCreate.retrieve<std::string>("message"));
         CString sName = CString(m_parserCreate.retrieve<std::string>("name"));
 
         createCounter(checkStringValue(sName, "counter"), convertWithDefaultValue(sInitial, DEFAULT_INITIAL),
                 convertWithDefaultValue(sStepValue, DEFAULT_STEP), convertWithDefaultValue(sCooldownValue, DEFAULT_COOLDOWN),
-                convertWithDefaultValue(sDelayValue, DEFAULT_DELAY), checkStringValue(sMessage, DEFAULT_MESSAGE));
+                convertWithDefaultValue(sDelayValue, DEFAULT_DELAY), convertWithDefaultValue(sEachValue, DEFAULT_EACH),
+                checkStringValue(sMessage, DEFAULT_MESSAGE));
         m_parserCreate.clearVariables();
-        //        MCString msRet;
-        //        CString::size_type tokensNb4 = sCommand.OptionSplit(msRet);
-        //        PutModule("Commande séparée en : " + CString(tokensNb4) + " chaines avec OptionSplit.");
-        //        MCString::iterator itMap;
-        //        for (itMap = msRet.begin(); itMap != msRet.end(); itMap++) {
-        //            PutModule("clé : " + itMap->first + " , valeur : " + itMap->second);
-        //        }
-
     }
 
     void deleteCounterCommand(const CString& sCommand) {
@@ -512,6 +524,7 @@ protected:
         std::map<CString, CCounter>::size_type erased = m_counters.erase(sName);
         if (erased) {
             PutModule("Counter '" + sName + "' deleted.");
+            //PutUser("/counters del " + sName);
         }
         else {
             PutModule("Counter " + sName + " not found.");
@@ -541,9 +554,10 @@ protected:
                 else {
                     execute(counter, sStep.ToInt());
                 }
-                if (!counter.hasActiveCooldown()) {
+                if (!counter.hasActiveCooldown() && counter.hasMinimumInterval()) {
 #ifdef HAVE_PTHREAD
                     AddJob(new CCounterJob(this, counter));
+                    counter.setCurrentValuePrinted();
 #else
                     CString formattedMessage = counter.getNamedFormat();
                     PutModule(formattedMessage);
@@ -552,6 +566,7 @@ protected:
                     for (CChan* channel : channels) {
                         PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
                     }
+                    //PutUser("/counters " + " " + counter.getName() + " " + counter.getCurrentValue());
 #endif
                 }
             }
@@ -563,6 +578,10 @@ protected:
 
     void resetCounterCommand(const CString& sCommand) {
         executeSimpleCommand(sCommand, &CCounter::reset, &CCounter::resetDefault);
+    }
+
+    void recreateCounterCommand(const CString& sCommand) {
+        executeSimpleCommand(sCommand, &CCounter::recreate, &CCounter::recreateDefault);
     }
 
     void incrementCounterCommand(const CString& sCommand) {
@@ -583,6 +602,7 @@ protected:
             for (CChan* channel : channels) {
                 PutIRC("PRIVMSG " + channel->GetName() + " :" + formattedMessage);
             }
+            //PutUser("/counters " + sName + " " + counter.getCurrentValue());
         }
         catch (const std::out_of_range oor) {
             PutModule("Counter '" + sName + "' not found.");
@@ -615,18 +635,20 @@ protected:
                 if (sProperty.Equals("NAME"))
                     counter.setName(sValue);
                 else if (sProperty.Equals("INITIAL"))
-                    counter.setInitial(convertWithDefaultValue(sValue, 0));
+                    counter.setInitial(convertWithDefaultValue(sValue, DEFAULT_INITIAL));
                 else if (sProperty.Equals("STEP"))
-                    counter.setStep(convertWithDefaultValue(sValue, 1));
+                    counter.setStep(convertWithDefaultValue(sValue, DEFAULT_STEP));
                 else if (sProperty.Equals("COOLDOWN"))
-                    counter.setCooldown(convertWithDefaultValue(sValue, 0));
+                    counter.setCooldown(convertWithDefaultValue(sValue, DEFAULT_COOLDOWN));
                 else if (sProperty.Equals("DELAY"))
-                    counter.setDelay(convertWithDefaultValue(sValue, 0));
+                    counter.setDelay(convertWithDefaultValue(sValue, DEFAULT_DELAY));
+                else if (sProperty.Equals("EACH"))
+                    counter.setEach(convertWithDefaultValue(sValue, DEFAULT_EACH));
                 else if (sProperty.Equals("MESSAGE"))
                     counter.setMessage(sValue);
                 else
                     PutModule("Incorrect property ! Possibles properties are : name, "
-                        "initial, step, cooldown, delay and message.");
+                        "initial, step, cooldown, delay, each and message.");
 
                 PutModule("Property '" + sProperty + "' of counter '" + sName +
                         "' changed to '" + sValue + "' value.");
@@ -651,6 +673,17 @@ protected:
         PutModule(sCounters);
     }
 
+    void listFullCountersCommand(const CString& sCommand) {
+        CString sCounters = CString("");
+        for (std::map<CString, CCounter>::iterator it = m_counters.begin(); it != m_counters.end(); ++it) {
+            sCounters.append(it->first + " " + it->second.getCurrentValue());
+            if (it != std::prev(m_counters.end())) {
+                sCounters.append(", ");
+            }
+            //PutUser("/counters " + it->first + " " + it->second.getCurrentValue());
+        }
+        PutModule(sCounters);
+    }
 
     //LISTENERS COMMANDS
 
@@ -689,7 +722,6 @@ protected:
         PutModule(sListeners);
     }
 
-
 public:
 
     MODCONSTRUCTOR(CCountersMod) {
@@ -701,6 +733,7 @@ public:
         m_parserCreate.addArgument("-s", "--step", 1, true);
         m_parserCreate.addArgument("-c", "--cooldown", 1, true);
         m_parserCreate.addArgument("-d", "--delay", 1, true);
+        m_parserCreate.addArgument("-e", "--each", 1, true);
         m_parserCreate.addArgument("-m", "--message", 1, true);
         m_parserCreate.addFinalArgument("name", 1, false);
         MyMap::getInstance().insert(std::make_pair<CString, CString>("NAME", ""));
@@ -708,6 +741,7 @@ public:
         MyMap::getInstance().insert(std::make_pair<CString, CString>("STEP", ""));
         MyMap::getInstance().insert(std::make_pair<CString, CString>("COOLDOWN", ""));
         MyMap::getInstance().insert(std::make_pair<CString, CString>("DELAY", ""));
+        MyMap::getInstance().insert(std::make_pair<CString, CString>("EACH", ""));
         MyMap::getInstance().insert(std::make_pair<CString, CString>("PREVIOUS_VALUE", ""));
         MyMap::getInstance().insert(std::make_pair<CString, CString>("CURRENT_VALUE", ""));
         MyMap::getInstance().insert(std::make_pair<CString, CString>("MINIMUM_VALUE", ""));
@@ -721,6 +755,8 @@ public:
                 "Create a counter.");
         AddCommand("Delete", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::deleteCounterCommand),
                 "<name>", "Delete <name> counter.");
+        AddCommand("Recreate", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::recreateCounterCommand),
+                "<name>", "Recreate <name> counter (reset all values).");
         AddCommand("Reset", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::resetCounterCommand),
                 "<name> [reset_value]", "Reset <name> counter.");
         AddCommand("Incr", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::incrementCounterCommand),
@@ -731,11 +767,12 @@ public:
                 "<name>", "Show information of <name> counter.");
         AddCommand("Set", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::setPropertyCounterCommand),
                 "<name> <property> <value>", "Set property <property> to <value> for counter <name>.");
-        AddCommand("List", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::listCountersCommand),
-                "", "List counters.");
         AddCommand("Print", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::printCounterCommand),
                 "<name>", "Print message for <name> counter.");
-
+        AddCommand("List", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::listCountersCommand),
+                "", "List counters.");
+        AddCommand("ListFull", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::listFullCountersCommand),
+                "", "List counters with their value.");
         //COMMANDS FOR LISTENERS
         AddCommand("CreateListener", static_cast<CModCommand::ModCmdFunc> (&CCountersMod::createListenerCommand),
                 "<name> <nickname> <listener_name>", "Create a listener : alias that can be used "
